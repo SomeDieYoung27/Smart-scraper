@@ -51,5 +51,25 @@ class VectorProcessor:
         except Exception as e:
             logger.error(f"Error processing image {image_url}: {e}")
             return np.zeroes((1,768))
+
+
+    def get_text_embedding(self,text:str) -> np.ndarray:
+        "Generate embedding for text using MiniLM"
+        try:
+            cache_key = str(hash(text))
+            cache_path = self.cache_dir/f"{cache_key}.npy"
+            if cache_path.exists():
+                return np.load(cache_path)
+            
+            embedding = self.text_model.encode([text])[0]
+            np.save(cache_path,embedding)
+            return embedding
+        
+        except Exception as e:
+            logger.error(f"Error processing text {text}: {e}")
+            return np.zeroes(384)
         
         
+
+        
+
