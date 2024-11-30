@@ -96,7 +96,22 @@ class VectorProcessor:
 
         return df
     
+    def main():
+        df = pd.read_csv("data/courses.csv")
+
+        #Process data
+        processer = VectorProcessor()
+        processed_df = processer.process_course_data(df)
+
+
+        #Save processed data
+        processer.save_processed_data(processed_df)
+
+
+    if __name__ == "__main__":
+        main()
     
+
         
 
 
