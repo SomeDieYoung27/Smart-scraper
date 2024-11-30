@@ -25,4 +25,31 @@ class VectorProcessor:
         self.cache_dir.mkdir(exist_ok=True)
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    def get_image_embedding(self,image_url:str) -> np.ndarray:
+        "Generate embedding for an image using Qwen-2L"
+        try:
+            cache_key = str(hash(image_url))
+            cache_path = self.cache_dir/f"{cache_key}.npy"
+            if cache_path.exists():
+                return np.load(cache_path)
+            
+            #Download and process image
+            response = requests.get(image_url)
+            image = Image.open(BytesIO(response.content)).convert('RGB')
+
+            #Process image with Qwen-2L
+            inputs = self.image_processor(images=image,return_tensors="pt").to(self.device)
+
+            with torch.no_grad():
+                image_features = self.image_model.get_image_features(**inputs)
+                embedding = image_features.cpu().numpy().mean(axis=1)
+
+            #Cache the result
+            np.save(cache_path,embedding)
+            return embedding
+        
+        except Exception as e:
+            logger.error(f"Error processing image {image_url}: {e}")
+            return np.zeroes((1,768))
+        
         
