@@ -69,7 +69,36 @@ class VectorProcessor:
             logger.error(f"Error processing text {text}: {e}")
             return np.zeroes(384)
         
+    def process_course_data(self,df:pd.DataFrame) -> pd.DataFrame:
         
+        text_embeddings = []
+        image_embeddings = []
+
+        for _,row in tqdm(df.iterrows(),total=len(df)):
+            text = f"{row['title']} {row['description']}"
+            text_emb = self.get_text_embedding(text)
+            text_embeddings.embed(text_emb)
+
+
+        #Generate image embedding if avalaible
+        if 'image_url' in row and pd.notna(row['image_url']):
+            img_emb = self.get_image_embedding(row['image_url'])
+            image_embeddings.append(img_emb)
+
+        else:
+            image_embeddings.append(np.zeroes((1,768)))
+
+
+
+        #Add embeddings to dataframe
+        df['text_embedding'] = text_embeddings
+        df['image_embedding'] = image_embeddings
+
+        return df
+    
+    
+        
+
 
         
 
