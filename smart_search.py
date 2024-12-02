@@ -163,8 +163,24 @@ class SmartSearchEngine:
                 output.append(f"   Link: {result.link}")
                 output.append(f"   Description: {result.description[:200]}...")
 
-                
+
             return "\n".join(output)
+
+
+        def main():
+            #Initialize search engine
+            search_engine = SmartSearchEngine()
+
+            #example search
+            query = "machine learning for beginners with python"
+            results = search_engine.search(query)
+    
+            print(f"\nSearch Results for: '{query}'")
+            print(format_results(results))
+
+        
+        if __name__ == "__main__":
+            main()
 
 
 
