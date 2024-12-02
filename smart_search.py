@@ -63,7 +63,39 @@ class SmartSearchEngine:
         image_vectors = np.vstack(self.df['image_embedding'].values)
         self.image_index.add(image_vectors.astype('float32'))
 
-        
+
+    def get_query_embeddings(self,text_query:str,image_query:Optional[str] = None) -> tuple:
+        #Generate embeddings for text and image queries
+        text_emb = self.text_model.encode([text_query])[0]
+
+        #Get image embeddings if you can(image embeddings if you can)
+        if image_query:
+            try:
+                response = requests.get(image_query)
+                image = Image.open(BytesIO(response.content)).convert*('RGB')
+                inputs = self.image_processer(images=image,return_tensors="pt").to(self.device)
+
+
+                with torch.no_grad():
+                    image_features =self.image_model.get_image_features(**inputs)
+                    image_emb = image_features.cpu().numpy().mean(axis=1)
+
+            except Exception as e:
+                logger.error(f"Error processing image query: {e}")
+                image_emb = None
+            
+            else :
+                image_emb = None
+
+            return text_emb,image_emb
+            
+
+
+
+
+
+
+
 
 
 
