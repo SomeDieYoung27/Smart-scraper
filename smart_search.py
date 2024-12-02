@@ -88,7 +88,61 @@ class SmartSearchEngine:
                 image_emb = None
 
             return text_emb,image_emb
-            
+
+        def search(self,query:str,image_query:Optional[str]=None,top_k:int=5,text_weight:float=0.7,image_weight:float=0.3) -> List[SearchResult]:
+
+             """
+             Perform multimodal search using both text and image queries
+        
+              Args:
+              query: Text search query
+              image_query: Optional URL to an image for visual search
+              top_k: Number of results to return
+              text_weight: Weight given to text similarity (0-1)
+              image_weight: Weight given to image similarity (0-1)
+              """
+
+      
+             text_emb,image_emb = self.get_query_embeddings(query,image_query)
+
+            #Get text similarities
+             text_emb = text_emb.reshape(1,-1).astype('float32')
+             text_scores,text_indices = self.text_index.search(text_emb,len(self.df))
+
+            #Get image similarities if avaliable
+             if image_emb is not None:
+                image_scores,image_indices = self.image_index.search(image_emb.astype('float32'),len(self.df))
+
+                #Combine the scores
+                combined_scores = (text_weight * text_scores[0] + image_weight * image_scores[0]) 
+
+             else : 
+                 combined_scores = text_scores[0]
+
+            #Sort by combined scores
+             top_indices = np.argsort(combined_scores)[:top_k][::-1]
+
+            #Preparing results
+             results = []
+             for idx in top_indices:
+                course = self.df.iloc[idx]
+                results.append(
+                    SearchResult(
+                        title = course['title'],
+                        description=course['description'],
+                        rating = course['rating'],
+                        link = course['link'],
+                        duration = course['duration'],
+                        level=course['level'],
+                        relevance_score=float(combined_scores[idx]),
+                        image_url=course['image_url']
+                    )
+                )
+             return results
+
+
+
+
 
 
 
