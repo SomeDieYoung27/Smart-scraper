@@ -140,6 +140,20 @@ class SmartSearchEngine:
                 )
              return results
 
+        def get_course_recommendations(self,course_id:int,top_k:int=5) -> List[SearchResult]:
+             """Get similar courses based on a specific course"""
+             course = self.df.iloc[course_id]
+
+             #Use course title and description as query
+             query = f"{course['title']} {course['description']}"
+
+             #Use course image if available
+             image_query = course['image_url']
+
+             return self.search(query,image_query,top_k)
+             
+
+
 
 
 
