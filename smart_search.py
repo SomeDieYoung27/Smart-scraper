@@ -151,7 +151,23 @@ class SmartSearchEngine:
              image_query = course['image_url']
 
              return self.search(query,image_query,top_k)
-             
+
+        def format_results(results:List[SearchResult]) -> str:
+            """Format search results for display"""
+            output = []
+            for i,result in enumerate(results,1):
+                """Format search results for display"""
+                output.append(f"\n{i}. {result.title}")
+                output.append(f"   Level: {result.level} | Duration: {result.duration} | Rating: {result.rating}")
+                output.append(f"   Relevance Score: {result.relevance_score:.2f}")
+                output.append(f"   Link: {result.link}")
+                output.append(f"   Description: {result.description[:200]}...")
+
+                
+            return "\n".join(output)
+
+
+
 
 
 
