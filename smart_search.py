@@ -15,168 +15,55 @@ import faiss
 import json
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = Logging.getLogger(__name__)
+
 
 @dataclass
 class SearchResult:
-    title: str
-    description: str
-    rating: str
-    link: str
-    duration: str
-    level: str
-    relevance_score: float
-    image_url: Optional[str] = None
+    title:str
+    description:str
+    rating:str
+    link:str
+    duration:str
+    level:str
+    relevance_score : float
+    image_url : Optional[str] = None
 
 class SmartSearchEngine:
-    def __init__(self, data_path: str = 'output/courses_with_embeddings.pkl'):
+    def __init__(self,data_path:str ="output/courses_with_embeddings.pkl"):
         self.text_model = SentenceTransformer('all-MiniLM-L6-v2')
-        self.image_processor = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-Chat")
+        self.image_processer = AutoProcessor.from_pretrained("Qwen/Qwen2-VL-Chat")
         self.image_model = AutoModelForVision2Seq.from_pretrained("Qwen/Qwen2-VL-Chat")
-        
+
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.image_model.to(self.device)
         
-        # Load course data
+
+        #Loading course data
         self.df = pd.read_pickle(data_path)
-        
-        # Initialize FAISS indices
-        self.init_faiss_indices()
-        
-        # Cache for query embeddings
-        self.cache_dir = Path('cache')
+
+        #Initialize FAISS indixes
+        self.__init__faiss_indexes()
+
+        #Cache for query embeddings
+        self.cache_dir = Path("cache")
         self.cache_dir.mkdir(exist_ok=True)
 
-    def init_faiss_indices(self):
-        """Initialize FAISS indices for fast similarity search"""
-        # Text embeddings index
+    def init_faiss_indexes(self):
+        #Initialize FAISS indices for fast similarity search
+        #Text embedding index
         text_dim = len(self.df['text_embedding'].iloc[0])
         self.text_index = faiss.IndexFlatIP(text_dim)
         text_vectors = np.stack(self.df['text_embedding'].values)
         self.text_index.add(text_vectors.astype('float32'))
-        
-        # Image embeddings index
+
+        #Image embedding index
         image_dim = self.df['image_embedding'].iloc[0].shape[1]
-        self.image_index = faiss.IndexFlatIP(image_dim)
+        self.image_index = faiss.IndexFlatIp(image_dim)
         image_vectors = np.vstack(self.df['image_embedding'].values)
         self.image_index.add(image_vectors.astype('float32'))
 
-    def get_query_embeddings(self, 
-                           text_query: str, 
-                           image_query: Optional[str] = None) -> tuple:
-        """Generate embeddings for the query"""
-        # Get text embedding
-        text_emb = self.text_model.encode([text_query])[0]
         
-        # Get image embedding if provided
-        if image_query:
-            try:
-                response = requests.get(image_query)
-                image = Image.open(BytesIO(response.content)).convert('RGB')
-                inputs = self.image_processor(images=image, return_tensors="pt").to(self.device)
-                
-                with torch.no_grad():
-                    image_features = self.image_model.get_image_features(**inputs)
-                    image_emb = image_features.cpu().numpy().mean(axis=1)
-            except Exception as e:
-                logger.error(f"Error processing query image: {e}")
-                image_emb = None
-        else:
-            image_emb = None
-            
-        return text_emb, image_emb
 
-    def search(self, 
-              query: str, 
-              image_query: Optional[str] = None,
-              top_k: int = 5,
-              text_weight: float = 0.7,
-              image_weight: float = 0.3) -> List[SearchResult]:
-        """
-        Perform multimodal search using both text and image queries
-        
-        Args:
-            query: Text search query
-            image_query: Optional URL to an image for visual search
-            top_k: Number of results to return
-            text_weight: Weight given to text similarity (0-1)
-            image_weight: Weight given to image similarity (0-1)
-        """
-        # Get query embeddings
-        text_emb, image_emb = self.get_query_embeddings(query, image_query)
-        
-        # Get text similarities
-        text_emb = text_emb.reshape(1, -1).astype('float32')
-        text_scores, text_indices = self.text_index.search(text_emb, len(self.df))
-        
-        # Get image similarities if available
-        if image_emb is not None:
-            image_scores, image_indices = self.image_index.search(
-                image_emb.astype('float32'), 
-                len(self.df)
-            )
-            
-            # Combine scores
-            combined_scores = (text_weight * text_scores[0] + 
-                             image_weight * image_scores[0])
-        else:
-            combined_scores = text_scores[0]
-            
-        # Sort by combined scores
-        top_indices = np.argsort(combined_scores)[-top_k:][::-1]
-        
-        # Prepare results
-        results = []
-        for idx in top_indices:
-            course = self.df.iloc[idx]
-            results.append(
-                SearchResult(
-                    title=course['title'],
-                    description=course['description'],
-                    rating=course['rating'],
-                    link=course['link'],
-                    duration=course['duration'],
-                    level=course['level'],
-                    relevance_score=float(combined_scores[idx]),
-                    image_url=course.get('image_url')
-                )
-            )
-            
-        return results
 
-    def get_course_recommendations(self, course_id: int, top_k: int = 5) -> List[SearchResult]:
-        """Get similar courses based on a specific course"""
-        course = self.df.iloc[course_id]
-        
-        # Use course title and description as query
-        query = f"{course['title']} {course['description']}"
-        
-        # Use course image if available
-        image_query = course.get('image_url')
-        
-        return self.search(query, image_query, top_k)
 
-def format_results(results: List[SearchResult]) -> str:
-    """Format search results for display"""
-    output = []
-    for i, result in enumerate(results, 1):
-        output.append(f"\n{i}. {result.title}")
-        output.append(f"   Level: {result.level} | Duration: {result.duration} | Rating: {result.rating}")
-        output.append(f"   Relevance Score: {result.relevance_score:.2f}")
-        output.append(f"   Link: {result.link}")
-        output.append(f"   Description: {result.description[:200]}...")
-    return "\n".join(output)
-
-def main():
-    # Initialize search engine
-    search_engine = SmartSearchEngine()
-    
-    # Example search
-    query = "machine learning for beginners with python"
-    results = search_engine.search(query)
-    
-    print(f"\nSearch Results for: '{query}'")
-    print(format_results(results))
-
-if __name__ == "__main__":
-    main()
