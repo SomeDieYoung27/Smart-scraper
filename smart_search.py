@@ -28,6 +28,7 @@ class SearchResult:
     level:str
     relevance_score : float
     image_url : Optional[str] = None
+    virality:Optional[str] = None
 
 class SmartSearchEngine:
     def __init__(self,data_path:str ="output/courses_with_embeddings.pkl"):
